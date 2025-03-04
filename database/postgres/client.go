@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
 	"log"
 	"time"
 
@@ -11,7 +12,7 @@ import (
 	"github.com/doug-martin/goqu/v9"
 	"github.com/jmoiron/sqlx"
 
-	database "github.com/humangrass/gommon/database"
+	"github.com/humangrass/gommon/database"
 )
 
 type Pool struct {
@@ -22,13 +23,18 @@ func (c *Pool) Builder() *goqu.Database {
 	return c.db
 }
 
-// Drop close not implemented in database.
 func (c *Pool) Drop() error {
+	if db, ok := c.db.Db.(*sql.DB); ok {
+		return db.Close()
+	}
 	return nil
 }
 
 func (c *Pool) DropMsg() string {
-	return "close database: is not implemented"
+	if _, ok := c.db.Db.(*sql.DB); ok {
+		return "database connection closed successfully"
+	}
+	return "database connection not initialized or already closed"
 }
 
 func NewPool(ctx context.Context, opt *database.Opt) (*Pool, error) {
@@ -60,6 +66,16 @@ func NewPool(ctx context.Context, opt *database.Opt) (*Pool, error) {
 	}
 
 	return &Pool{db: pool}, nil
+}
+
+func (c *Pool) BeginTx(ctx context.Context, opts *sql.TxOptions) (*goqu.TxDatabase, error) {
+	tx, err := c.db.Db.BeginTx(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	txDatabase := goqu.NewTx(c.db.Dialect(), tx)
+	return txDatabase, nil
 }
 
 // NewTestPoolFromDsn only for tests.
