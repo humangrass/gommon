@@ -1,4 +1,4 @@
-package go_database
+package database
 
 import (
 	"fmt"

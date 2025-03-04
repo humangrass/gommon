@@ -1,4 +1,4 @@
-package go_database
+package database
 
 // Logger is common database operations log implementation.
 type Logger struct {

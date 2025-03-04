@@ -1,0 +1,51 @@
+name: Go Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:14
+        ports:
+          - "5432:5432"
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: changeme123
+          POSTGRES_DB: test
+        options: >-
+          --health-cmd="pg_isready -U user"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.22
+
+      - name: Verify Go version
+        run: go version
+
+      - name: Install dependencies
+        run: go mod tidy
+
+      - name: Apply migrations
+        run: |
+          apt-get update && apt-get install -y postgresql-client
+          psql -h localhost -U user -d test -f database/postgres-test/migrations/init.sql
+        env:
+          PGPASSWORD: changeme123
+
+      - name: Run tests
+        run: go test ./... -v
